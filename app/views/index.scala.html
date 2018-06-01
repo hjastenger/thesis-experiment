@@ -3,7 +3,7 @@
 
 <html>
 <head>
-    <title>Reactive Stock News Dashboard</title>
+    <title>Landing page</title>
     <link rel='stylesheet' href='@routes.Assets.at("lib/bootstrap/css/bootstrap.min.css")'>
     <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/main.css")">
     <link rel="shortcut icon" type="image/png" href="@routes.Assets.at("images/favicon.png")">
@@ -11,7 +11,7 @@
     <script type='text/javascript' src='@routes.Assets.at("lib/flot/jquery.flot.js")'></script>
     <script type='text/javascript' src='@routes.Assets.at("javascripts/index.js")'></script>
 </head>
-<body data-ws-url="@routes.HomeController.ws.webSocketURL()">
+<body>
     <div class="navbar navbar-inverse navbar-fixed-top">
         <div class="navbar-inner">
             <div class="container">
@@ -24,7 +24,10 @@
         </div>
     </div>
 
-    <div id="stocks" class="container">
+    <form id="ws-message-form">
+        Message<input type="text" id="" name="message"><br>
+        <input id="ws-message-submit" type="submit">
+    </form>
 
     </div>
 </body>
