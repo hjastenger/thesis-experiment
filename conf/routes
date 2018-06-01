@@ -5,6 +5,7 @@
 GET     /                           controllers.HomeController.lander
 GET     /empty                      controllers.HomeController.empty
 
+GET     /websocket_ping             controllers.HomeController.websocket_ping
 GET     /websocket                  controllers.HomeController.websocket
 
 # Map static resources from the /public folder to the /assets URL path

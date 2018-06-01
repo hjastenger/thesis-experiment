@@ -22,8 +22,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * This class creates the actions and the websocket needed.
   */
 @Singleton
-class HomeController @Inject() (cc: ControllerComponents)
-                    (implicit ec: ExecutionContext, system: ActorSystem, mat: Materializer)
+class HomeController @Inject()(cc: ControllerComponents)
+                              (implicit ec: ExecutionContext, system: ActorSystem, mat: Materializer)
   extends AbstractController(cc) with SameOriginCheck {
 
   val logger = play.api.Logger(getClass)
@@ -34,6 +34,12 @@ class HomeController @Inject() (cc: ControllerComponents)
 
   def empty = Action { implicit request: Request[AnyContent] =>
     Ok(views.html.empty())
+  }
+
+  def websocket_ping: WebSocket = WebSocket.accept[JsValue, JsValue] { _ =>
+    ActorFlow.actorRef { out =>
+      WebSocketActor.props(out)
+    }
   }
 
   def websocket: WebSocket = WebSocket.accept[JsValue, JsValue] { _ =>
@@ -62,6 +68,8 @@ class HomeController @Inject() (cc: ControllerComponents)
     //      }
     //    }
   }
+
+
 }
 
 trait SameOriginCheck {
