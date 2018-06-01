@@ -32,6 +32,10 @@ class HomeController @Inject() (cc: ControllerComponents)
     Ok(views.html.index())
   }
 
+  def empty = Action { implicit request: Request[AnyContent] =>
+    Ok(views.html.empty())
+  }
+
   def websocket: WebSocket = WebSocket.accept[JsValue, JsValue] { _ =>
     ActorFlow.actorRef { out =>
       WebSocketSignallingActor.props(out)
