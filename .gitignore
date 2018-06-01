@@ -17,3 +17,6 @@ dist
 /.settings
 /project/*-shim.sbt
 /activator-sbt-*-shim.sbt
+
+/*.log
+tags/*
