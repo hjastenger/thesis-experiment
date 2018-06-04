@@ -20,3 +20,4 @@ dist
 
 /*.log
 tags/*
+.DS_Store
