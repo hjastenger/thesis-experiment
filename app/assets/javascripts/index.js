@@ -4,9 +4,11 @@ const ws = new WebSocket("ws://localhost:9000/websocket");
 const peerConnection = new RTCPeerConnection();
 
 let message = "regular message"
+let msg_send = 0;
+let msg_received = 0;
 
 const dataChannel = peerConnection.createDataChannel("channel",
-    {ordered:false});
+    { ordered:false });
 
 // Websocket handlers
 
@@ -57,6 +59,10 @@ ws.onerror = function(event) {
 
 peerConnection.onicecandidate = function(e) {
     console.log('IceCand: ' + JSON.stringify(e));
+    const offer = JSON.stringify(
+                peerConnection.localDescription
+            )
+            ws.send(offer);
 //    if(e.isTrusted === true) {
 //        console.log("State: " +dataChannel.readyState);
 //        console.log("IceState: " + peerConnection.iceGatheringState);
@@ -79,7 +85,7 @@ peerConnection.onsignalingstatechange = function(event) {
 
 peerConnection.onconnectionstatechange = function(event) {
   console.log("State: " + JSON.stringify(event));
-  switch(pc.connectionState) {
+  switch(peerConnection.connectionState) {
     case "connected":
       break;
     case "disconnected":
@@ -138,6 +144,8 @@ dataChannel.onopen = function (e) {
     console.log("Open data channel: " + JSON.stringify(e));
     setInterval(function() {
         dataChannel.send(message)
+        msg_send += 1
+        document.getElementById("dc_send").innerHTML = msg_send;
     }, 500)
     console.log("closing websocket")
     ws.close()
@@ -145,11 +153,13 @@ dataChannel.onopen = function (e) {
 
 dataChannel.onmessage = function (e) {
     console.log("received message")
+    msg_received += 1
+    document.getElementById("dc_received").innerHTML = msg_received;
     console.log(e.data)
 }
 
 window.onbeforeunload = function(){
-   datachannel.close()
+   dataChannel.close()
 }
 // OR
 window.addEventListener("beforeunload", function(e){
