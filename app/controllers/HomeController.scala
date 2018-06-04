@@ -32,6 +32,10 @@ class HomeController @Inject()(cc: ControllerComponents)
     Ok(views.html.index())
   }
 
+  def unreliable = Action { implicit request: Request[AnyContent] =>
+    Ok(views.html.unreliable())
+  }
+
   def empty = Action { implicit request: Request[AnyContent] =>
     Ok(views.html.empty())
   }

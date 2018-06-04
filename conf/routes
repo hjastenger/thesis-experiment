@@ -4,6 +4,8 @@
 
 GET     /                           controllers.HomeController.lander
 GET     /empty                      controllers.HomeController.empty
+GET     /unreliable                 controllers.HomeController.unreliable
+
 
 GET     /websocket_ping             controllers.HomeController.websocket_ping
 GET     /websocket                  controllers.HomeController.websocket
