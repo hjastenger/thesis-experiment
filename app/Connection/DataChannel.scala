@@ -27,6 +27,7 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
   val logger = play.api.Logger(getClass)
   val localAddress: String = InetAddress.getLocalHost.getHostAddress
   var running: Boolean = true
+  var ordered: Boolean = true
 
   private val STUN_BINDING = 0
   private val DTLS_HANDSHAKE = 1
@@ -117,8 +118,9 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
 
     /* 1 byte unsigned integer */
     val messageType = 0xFF & buffer.get
-    if (messageType == MSG_CHANNEL_ACK) System.out.println("MSG_CHANNEL_ACK")
-    else if (messageType == MSG_OPEN_CHANNEL) {
+    val reliability = 0xFF & buffer.get(1)
+
+    if (messageType == MSG_OPEN_CHANNEL) {
       /* 2 bytes unsigned integer */
       val protocolLength = 0xFFFF & buffer.getShort
       // Send ACK
@@ -126,7 +128,29 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
       //                logger.info("Waiting for the DC to be open");
       ////                continue;
       //            }
-      logger.info("DC is open!! Transmitting ack")
+      logger.info("Received 'MSG_OPEN_CHANNEL', transmitting 'MSG_CHANNEL_ACK")
+      if(reliability == 0x00) {
+        logger.info("DATA_CHANNEL_RELIABLE (0x00)")
+      } else if(reliability == 0x80) {
+        this.ordered = false
+        logger.info("DATA_CHANNEL_RELIABLE_UNORDERED (0x80)")
+      } else if(reliability == 0x01) {
+        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT (0x01)")
+      } else if(reliability == 0x81) {
+        this.ordered = false
+        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED (0x81)")
+      } else if(reliability == 0x02) {
+        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_TIMED (0x02)")
+      } else if(reliability == 0x82) {
+//        Currently Chrome is not adhering to the standard supplied by the WebRTC standard
+//        adding maxPacketLifeTime to the MSG_OPEN_CHANNEL won't result in the appropriate
+//        byte being added to the packge. Safari is also emiting different behavour. No
+//        notification is in place to inform the browser of the ice gathering state. Complete
+//        will therefor never fire, while this same behaviour does exist in chrome and firefox.
+        this.ordered = false
+        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED (0x82)")
+      }
+      logger.info("Reliability parameter: " + reliability)
       val ack = MSG_CHANNEL_ACK_BYTES
       try {
         sctpSocket.accept()
@@ -155,7 +179,7 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
           if(str == "close") {
 
           } else {
-            sctpSocket.send(data, true, sid, ppid.toInt)
+            sctpSocket.send(data, this.ordered, sid, ppid.toInt)
             //          sctpSocket.send("thisisevenbeter".getBytes(), true, sid, ppid.toInt)
 
             //                    this.peerConnection.onDataChannel.onString.accept()
