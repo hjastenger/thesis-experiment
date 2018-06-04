@@ -4,7 +4,7 @@ const ws = new WebSocket("ws://localhost:9000/websocket_ping");
 
 ws.onopen = function(event) {
     console.log("ws.onopen");
-    ws.send(JSON.stringify({ data: "workinl" }))
+    ws.send(JSON.stringify({ data: "working" }))
 }
 
 ws.onmessage = function(event) {

@@ -12,6 +12,8 @@ class WebSocketActor(out: ActorRef) extends Actor with ActorLogging {
 
   override def receive: Receive = {
     case as: JsValue =>
+      val message: String = (as \ "data").as[String]
+      log.info("Receive: " + message)
       val timestamp: Long = System.currentTimeMillis
       val returnJson: JsObject = as.as[JsObject] + ("time_received" -> Json.toJson(timestamp))
 
