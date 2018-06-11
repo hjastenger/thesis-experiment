@@ -26,7 +26,7 @@ import play.api.libs.json._
 
 class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with SctpSocket.NotificationListener {
   val logger = play.api.Logger(getClass)
-  val localAddress: String = InetAddress.getLocalHost.getHostAddress
+  val localAddress: String = sys.env.getOrElse("ip_address", InetAddress.getLocalHost.getHostAddress)
 
   var running: Boolean = true
   var ordered: Boolean = true
