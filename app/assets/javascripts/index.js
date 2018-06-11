@@ -3,7 +3,7 @@
 const ws = new WebSocket("ws://localhost:9000/websocket");
 const peerConnection = new RTCPeerConnection();
 
-let message = "regular message"
+let message = { data: "regular message" };
 let msg_send = 0;
 let msg_received = 0;
 
@@ -34,6 +34,7 @@ ws.onmessage = function(event) {
     const data = JSON.parse(event.data)
     if(data.type === "offer") {
         const sd = new RTCSessionDescription({type: "answer", sdp: data.answer});
+        console.log(data.answer)
         peerConnection.setRemoteDescription(sd).then(function (sess) {
             console.log("Set remote with success ");
         }).catch(function(e){
@@ -59,15 +60,6 @@ ws.onerror = function(event) {
 
 peerConnection.onicecandidate = function(e) {
     console.log('IceCand: ' + JSON.stringify(e));
-    const offer = JSON.stringify(
-                peerConnection.localDescription
-            )
-            ws.send(offer);
-//    if(e.isTrusted === true) {
-//        console.log("State: " +dataChannel.readyState);
-//        console.log("IceState: " + peerConnection.iceGatheringState);
-//    }
-//
 	if (peerConnection.iceGatheringState === 'complete') {
         console.log("Candidate: " + JSON.stringify(e.candidate));
         console.log("IceState" + peerConnection.iceGatheringState);
@@ -143,7 +135,7 @@ dataChannel.onclose = function (e) {
 dataChannel.onopen = function (e) {
     console.log("Open data channel: " + JSON.stringify(e));
     setInterval(function() {
-        dataChannel.send(message)
+        dataChannel.send(JSON.stringify(message))
         msg_send += 1
         document.getElementById("dc_send").innerHTML = msg_send;
     }, 500)
