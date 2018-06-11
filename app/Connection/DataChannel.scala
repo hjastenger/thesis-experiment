@@ -22,10 +22,12 @@ import org.apache.commons.codec.binary.Hex
 import org.bouncycastle.crypto.tls.{DTLSServerProtocol, DTLSTransport}
 import org.jitsi.service.neomedia.RawPacket
 import play.Play
+import play.api.libs.json._
 
 class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with SctpSocket.NotificationListener {
   val logger = play.api.Logger(getClass)
   val localAddress: String = InetAddress.getLocalHost.getHostAddress
+
   var running: Boolean = true
   var ordered: Boolean = true
 
@@ -44,7 +46,6 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
   this.UDPSocket.setReceiveBufferSize(2000000)
   this.UDPSocket.setSendBufferSize(2000000)
   var transport: DTLSTransport = null
-//  Sctp.init()
   var sctpSocket: SctpSocket = Sctp.createSocket(5000)
 
   logger.info("UDP socket started: Port("+this.UDPSocket.getLocalPort+"), Address:("+ this.localAddress+")")
@@ -123,11 +124,7 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
     if (messageType == MSG_OPEN_CHANNEL) {
       /* 2 bytes unsigned integer */
       val protocolLength = 0xFFFF & buffer.getShort
-      // Send ACK
-      //            while(!this.sctpIsReady) {
-      //                logger.info("Waiting for the DC to be open");
-      ////                continue;
-      //            }
+
       logger.info("Received 'MSG_OPEN_CHANNEL', transmitting 'MSG_CHANNEL_ACK")
       if(reliability == 0x00) {
         logger.info("DATA_CHANNEL_RELIABLE (0x00)")
@@ -162,45 +159,31 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
       }
     }
     else if (ppid == WEB_RTC_PPID_STRING || ppid == WEB_RTC_PPID_BIN) { //            WebRtcDataStream channel;
-      //            synchronized (syncRoot)
-      //            {
-      //                channel = channels.get(sid);
-      //            if (channel == null)
-      //            {
-      //                logger.error("No channel found for sid: " + sid);
-      //                return;
-      if (ppid == WEB_RTC_PPID_STRING) { // WebRTC String
+      if (ppid == WEB_RTC_PPID_STRING) {
         var str = ""
         val charsetName = "UTF-8"
         try {
-//          str = new String(data, charsetName)
           str = new String(data, charsetName)
+          val json: JsValue = Json.parse(str)
+          val timestamp: Long = System.currentTimeMillis
+//          val metadata = (json \ "metadata").as[JsObject] + ("time_acquired" -> Json.toJson(timestamp))
+//          val metadata = ((json \ "metadata").get)
+//          logger.info("Metadata:")
+          //          val something = json.as[JsObject] + ("metadata" -> metadata)
+
+          val returnJson: JsObject = json.as[JsObject] + ("time_acquired" -> Json.toJson(timestamp))
+          val result: Array[Byte] = returnJson.toString().getBytes("UTF-8")
           logger.info("sid of: " + sid)
-          if(str == "close") {
-
-          } else {
-            sctpSocket.send(data, this.ordered, sid, ppid.toInt)
-            //          sctpSocket.send("thisisevenbeter".getBytes(), true, sid, ppid.toInt)
-
-            //                    this.peerConnection.onDataChannel.onString.accept()
-          }
+          logger.info("PPID: " + ppid)
+          sctpSocket.send(result, 0, result.length, this.ordered, sid, ppid.toInt, 0)
         } catch {
           case ex: IOException =>
             if (ex.isInstanceOf[UnsupportedEncodingException]) logger.error("Unsupported charset encoding/name " + charsetName, ex)
             else logger.error("caught something while responding to the datachannel message: " + ex)
             str = null
-        } //                catch (UnsupportedEncodingException uee)
-
-        //                catch (IOException e) {
-        //                    logger.error("caught something while responding to the datachannel message: " + e);
-        //                }
+        }
         logger.info("PPID of" + ppid)
         logger.info("received the following string: " + str)
-        //                channel.onStringMsg(str);
-      }
-      else {
-        // WebRTC Binary
-        //                channel.onBinaryMsg(data);
       }
     }
     else {
@@ -241,23 +224,14 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
 
       } else if (this.mode == DTLS_HANDSHAKE) {
         logger.info("Connection mode is: 'DTLS_HANDSHAKE'")
-        //      sleep(500) //No reason to hammer on this
 
         UDPSocket.connect(sender)
         logger.info("Connecting DTLS mux")
-        /*
-       * {@link NioUdpTransport} might replace the {@link UDPTransport} here.
-       * @see <a href="https://github.com/RestComm/mediaserver/blob/master/io/rtp/src/main/java/org/mobicents/media/server/impl/srtp/NioUdpTransport.java">NioUdpTransport</a>
-       */
-        //DatagramTransport udpTransport = new UDPTransport(socket, DEFAULT_MTU);
         val muxStunTransport = new DtlsMuxStunTransport(userData, UDPSocket, DEFAULT_MTU)
         this.transport = serverProtocol.accept(dtlsServer, muxStunTransport)
 
         sctpSocket.setLink(new NetworkLink() {
-          //        @throws[IOException]
-          override def onConnOut(s: SctpSocket, packet: Array[Byte]): Unit = { // Send through DTLS transport. Add to the queue in order to
-            // make sure we don't block the thread which executes this.
-            //                                packetQueue.add(packet, 0, packet.length);
+          override def onConnOut(s: SctpSocket, packet: Array[Byte]): Unit = {
             transport.send(packet, 0, packet.length)
           }
         })
@@ -276,12 +250,9 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
         if (length >= 0) {
           val handled = util.Arrays.copyOf(buf, length)
           val send = Array(new RawPacket(handled, 0, handled.length))
-          //                            logger.info("rawpacket received!");
           for (s <- send) {
             if (s != null) sctpSocket.onConnIn(s.getBuffer, s.getOffset, s.getLength)
           }
-          //                            sctpSocket.onConnIn(buf, 0,buf.length);
-          //                            processReceivedMessage(handled);
         }
       }
     }
