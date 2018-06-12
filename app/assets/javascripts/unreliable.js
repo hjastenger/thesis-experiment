@@ -2,7 +2,7 @@
 
 document.addEventListener("DOMContentLoaded", function(event) {
     const ws_url = document.getElementById("ws_identifier").dataset.wsUrl
-    const ws = new WebSocket(`${ws_url}`)
+    const ws = new WebSocket(ws_url)
 
     const peerConnection = new RTCPeerConnection();
 
@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     let msg_received = 0;
 
     const dataChannel = peerConnection.createDataChannel("channel",
-        { ordered:false, maxRetransmits: 0 });
+        { ordered:false, maxRetransmits: 3000 });
 
     // Websocket handlers
 
@@ -62,15 +62,6 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
     peerConnection.onicecandidate = function(e) {
         console.log('IceCand: ' + JSON.stringify(e));
-        const offer = JSON.stringify(
-                    peerConnection.localDescription
-                )
-                ws.send(offer);
-    //    if(e.isTrusted === true) {
-    //        console.log("State: " +dataChannel.readyState);
-    //        console.log("IceState: " + peerConnection.iceGatheringState);
-    //    }
-    //
         if (peerConnection.iceGatheringState === 'complete') {
             console.log("Candidate: " + JSON.stringify(e.candidate));
             console.log("IceState" + peerConnection.iceGatheringState);
@@ -146,7 +137,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     dataChannel.onopen = function (e) {
         console.log("Open data channel: " + JSON.stringify(e));
         setInterval(function() {
-            dataChannel.send(message)
+            dataChannel.send(JSON.stringify(message));
             msg_send += 1
             document.getElementById("dc_send").innerHTML = msg_send;
         }, 500)
