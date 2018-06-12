@@ -159,6 +159,7 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
           this.channel_type = 0x81
           this.ordered = false
           this.reliability_configuration = reliability_configuration
+          logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED (0x81)")
         case 0x02 =>
           this.channel_type = 0x02
           this.ordered = true
@@ -204,7 +205,8 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
           val result: Array[Byte] = returnJson.toString().getBytes("UTF-8")
           logger.info("sid of: " + sid)
           logger.info("PPID: " + ppid)
-          sctpSocket.send(result, 0, result.length, this.ordered, sid, ppid.toInt, 0)
+          logger.info("Channel type: " + this.channel_type)
+          this.send(result, 0, sid, ppid.toInt)
         } catch {
           case ex: IOException =>
             if (ex.isInstanceOf[UnsupportedEncodingException]) logger.error("Unsupported charset encoding/name " + charsetName, ex)
@@ -219,6 +221,10 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
       logger.error("Unexpected ctrl msg type: " + messageType)
       logger.warn("Got message on unsupported PPID: " + ppid)
     }
+  }
+
+  def send(data: Array[Byte], offset: Int, sid: Int, ppid: Int): Int = {
+    sctpSocket.send(data, 0, data.length, this.ordered, sid, ppid.toInt, this.reliability_configuration, this.channel_type)
   }
 
   override def run(): Unit = {
