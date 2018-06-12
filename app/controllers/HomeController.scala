@@ -29,11 +29,13 @@ class HomeController @Inject()(cc: ControllerComponents)
   val logger = play.api.Logger(getClass)
 
   def lander = Action { implicit request: Request[AnyContent] =>
-    Ok(views.html.index())
+    val ws_url = "ws://" + sys.env.getOrElse("ip_address", "localhost")+ ":9000/websocket"
+    Ok(views.html.index(ws_url = ws_url))
   }
 
   def unreliable = Action { implicit request: Request[AnyContent] =>
-    Ok(views.html.unreliable())
+    val ws_url = "ws://" + sys.env.getOrElse("ip_address", "localhost")+ ":9000/websocket"
+    Ok(views.html.unreliable(ws_url = ws_url))
   }
 
   def empty = Action { implicit request: Request[AnyContent] =>
