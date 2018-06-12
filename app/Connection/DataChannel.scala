@@ -29,7 +29,12 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
   val localAddress: String = sys.env.getOrElse("ip_address", InetAddress.getLocalHost.getHostAddress)
 
   var running: Boolean = true
+
+  //  Should lift these variables to their own connection configuration object.
+  //  This should also make 'ordered' redundant since that information is already known by looking at  the channel type.
   var ordered: Boolean = true
+  var reliability_configuration = 0
+  var channel_type = 0x00
 
   private val STUN_BINDING = 0
   private val DTLS_HANDSHAKE = 1
@@ -102,16 +107,25 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
   def onSctpNotification(socket: SctpSocket, notification: SctpNotification) {
     logger.info("onSctpNotification")
     if(notification.sn_type == SctpNotification.SCTP_STREAM_RESET_EVENT) {
-      this.running = false
-      this.sctpSocket.close()
       this.transport.close()
+      this.running = false
       this.UDPSocket.close()
+
+      // Manually set link to nothing so heartbeats and stun packet's are not
+      // send on closed udp socket.
+      sctpSocket.setLink(new NetworkLink() {
+        override def onConnOut(s: SctpSocket, packet: Array[Byte]): Unit = {}
+      })
+
+      this.sctpSocket.close()
+
       logger.info("Received SctpNotification: " + notification.toString)
     } else {
       logger.info(notification.toString)
     }
   }
 
+//  https://tools.ietf.org/html/draft-ietf-rtcweb-data-protocol-09
   @Override
   override def onSctpPacket(data: Array[Byte], sid: Int, ssn: Int, tsn: Int, ppid: Long, context: Int, flags: Int): Unit = {
     logger.info("DataChannel with SSID: " + sid)
@@ -119,35 +133,50 @@ class DataChannel(offer: JsValue) extends Runnable with SctpDataCallback with Sc
 
     /* 1 byte unsigned integer */
     val messageType = 0xFF & buffer.get
-    val reliability = 0xFF & buffer.get(1)
 
     if (messageType == MSG_OPEN_CHANNEL) {
-      /* 2 bytes unsigned integer */
-      val protocolLength = 0xFFFF & buffer.getShort
+      val reliability = 0xFF & buffer.get(1)
+
+      /* 4 bytes unsigned integer */
+      val reliability_configuration = 0xFFFFFFFF & buffer.getInt(4)
 
       logger.info("Received 'MSG_OPEN_CHANNEL', transmitting 'MSG_CHANNEL_ACK")
-      if(reliability == 0x00) {
-        logger.info("DATA_CHANNEL_RELIABLE (0x00)")
-      } else if(reliability == 0x80) {
-        this.ordered = false
-        logger.info("DATA_CHANNEL_RELIABLE_UNORDERED (0x80)")
-      } else if(reliability == 0x01) {
-        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT (0x01)")
-      } else if(reliability == 0x81) {
-        this.ordered = false
-        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT_UNORDERED (0x81)")
-      } else if(reliability == 0x02) {
-        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_TIMED (0x02)")
-      } else if(reliability == 0x82) {
-//        Currently Chrome is not adhering to the standard supplied by the WebRTC standard
-//        adding maxPacketLifeTime to the MSG_OPEN_CHANNEL won't result in the appropriate
-//        byte being added to the packge. Safari is also emiting different behavour. No
-//        notification is in place to inform the browser of the ice gathering state. Complete
-//        will therefor never fire, while this same behaviour does exist in chrome and firefox.
-        this.ordered = false
-        logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED (0x82)")
+      reliability match {
+        case 0x00 =>
+          this.channel_type = 0x00
+          this.ordered = true
+          logger.info("DATA_CHANNEL_RELIABLE (0x00)")
+        case 0x01 =>
+          this.channel_type = 0x01
+          this.ordered = true
+          this.reliability_configuration = reliability_configuration
+          logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_REXMIT (0x01)")
+        case 0x80 =>
+          this.channel_type = 0x80
+          this.ordered = false
+          logger.info("DATA_CHANNEL_RELIABLE_UNORDERED (0x80)")
+        case 0x81 =>
+          this.channel_type = 0x81
+          this.ordered = false
+          this.reliability_configuration = reliability_configuration
+        case 0x02 =>
+          this.channel_type = 0x02
+          this.ordered = true
+          this.reliability_configuration = reliability_configuration
+          logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_TIMED (0x02)")
+        case 0x82 =>
+          // Currently Chrome is not adhering to the standard supplied by the WebRTC standard
+          // adding maxPacketLifeTime to the MSG_OPEN_CHANNEL won't result in the appropriate
+          // byte being added to the packge. Safari is also emiting different behavour. No
+          // notification is in place to inform the browser of the ice gathering state. Complete
+          // will therefor never fire, while this same behaviour does exist in chrome and firefox.
+          this.ordered = false
+          this.channel_type = 0x82
+          this.reliability_configuration = reliability_configuration
+          logger.info("DATA_CHANNEL_PARTIAL_RELIABLE_TIMED_UNORDERED (0x82)")
       }
-      logger.info("Reliability parameter: " + reliability)
+
+      logger.info("SCTP Reliability parameter: " + reliability)
       val ack = MSG_CHANNEL_ACK_BYTES
       try {
         sctpSocket.accept()
