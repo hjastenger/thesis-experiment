@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     let msg_received = 0;
 
     const dataChannel = peerConnection.createDataChannel("channel",
-        { ordered:false, maxRetransmits: 3000 });
+        { ordered:false, maxRetransmits: 0 });
 
     // Websocket handlers
 
