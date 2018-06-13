@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     const peerConnection = new RTCPeerConnection();
 
     let message = { data: "regular message" };
+    let stopSending = false;
     let msg_send = 0;
     let msg_received = 0;
 
@@ -18,6 +19,11 @@ document.addEventListener("DOMContentLoaded", function(event) {
     $(document).on('submit', '#ws-message-form', function(e) {
         e.preventDefault();
         message = e.target[0].value
+    });
+
+     $(document).on('submit', '#ws-message-stop-sending', function(e) {
+        e.preventDefault();
+        stopSending = true;
     });
 
     ws.onopen = function(event) {
@@ -136,10 +142,15 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
     dataChannel.onopen = function (e) {
         console.log("Open data channel: " + JSON.stringify(e));
-        setInterval(function() {
-            dataChannel.send(JSON.stringify(message));
-            msg_send += 1
-            document.getElementById("dc_send").innerHTML = msg_send;
+        const intervalSender = setInterval(function() {
+            if(!stopSending) {
+                dataChannel.send(JSON.stringify(message));
+                msg_send += 1
+                document.getElementById("dc_send").innerHTML = msg_send;
+            } else {
+                document.getElementById("stopped_sending").innerHTML = "Stopped sending";
+                clearTimeout(intervalSender);
+            }
         }, 500)
         console.log("closing websocket")
         ws.close()
